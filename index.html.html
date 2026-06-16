@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CropRotate - Smart Crop Rotation & Plant Health</title>
+    <style>
+        /* --- CSS VARIABLES & RESET --- */
+        :root {
+            --primary: #2E7D32; /* Hijau Tua */
+            --primary-light: #4CAF50;
+            --secondary: #81C784;
+            --accent: #F9A825; /* Kuning/Emas */
+            --bg-light: #F1F8E9;
+            --text-dark: #1B5E20;
+            --text-body: #37474F;
+            --white: #ffffff;
+            --shadow: 0 4px 6px rgba(0,0,0,0.1);
+            --radius: 12px;
+            --sidebar-width: 260px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        
+        body { background-color: var(--bg-light); color: var(--text-body); display: flex; min-height: 100vh; overflow-x: hidden; }
+        
+        a { text-decoration: none; color: inherit; transition: 0.3s; }
+        ul { list-style: none; }
+        button { cursor: pointer; border: none; outline: none; font-family: inherit; transition: 0.3s; }
+
+        /* --- UTILITIES --- */
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .hidden { display: none !important; }
+        .btn { padding: 10px 20px; border-radius: 8px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-primary { background: var(--primary); color: var(--white); }
+        .btn-primary:hover { background: var(--primary-light); transform: translateY(-2px); }
+        .btn-outline { border: 2px solid var(--primary); color: var(--primary); background: transparent; }
+        .btn-outline:hover { background: var(--primary); color: var(--white); }
+        .card { background: var(--white); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); margin-bottom: 20px; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; color: white; }
+        .bg-success { background-color: #4CAF50; }
+        .bg-warning { background-color: #FF9800; }
+        .bg-danger { background-color: #F44336; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+
+        /* --- NAVIGATION (SIDEBAR) --- */
+        #sidebar {
+            width: var(--sidebar-width);
+            background: var(--white);
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 100;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+        }
+
+        .logo-area { padding: 20px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #eee; }
+        .logo-icon { font-size: 24px; color: var(--primary); }
+        .logo-text { font-size: 1.2rem; font-weight: bold; color: var(--primary); }
+        
+        .nav-links { flex: 1; padding: 20px 0; overflow-y: auto; }
+        .nav-item { padding: 12px 20px; display: flex; align-items: center; gap: 12px; color: var(--text-body); cursor: pointer; }
+        .nav-item:hover, .nav-item.active { background: var(--bg-light); color: var(--primary); border-right: 4px solid var(--primary); }
+        .nav-icon { width: 20px; text-align: center; }
+
+        .user-mini { padding: 20px; border-top: 1px solid #eee; display: flex; align-items: center; gap: 10px; }
+        .avatar { width: 40px; height: 40px; background: var(--secondary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; }
+
+        /* --- MAIN CONTENT --- */
+        #main-content {
+            margin-left: var(--sidebar-width);
+            flex: 1;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        /* --- MOBILE HEADER --- */
+        .mobile-header {
+            display: none;
+            background: var(--primary);
+            color: white;
+            padding: 15px 20px;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 99;
+        }
+
+        /* --- VIEW: HOME --- */
+        .hero {
+            background: linear-gradient(rgba(46, 125, 50, 0.8), rgba(46, 125, 50, 0.8)), url('https://picsum.photos/seed/farm/1200/600') no-repeat center center/cover;
+            color: white;
+            padding: 80px 20px;
+            text-align: center;
+            border-radius: 0 0 30px 30px;
+        }
+        .hero h1 { font-size: 2.5rem; margin-bottom: 10px; }
+        .hero p { font-size: 1.2rem; margin-bottom: 30px; opacity: 0.9; }
+        
+        .stats-row { display: flex; justify-content: space-around; margin-top: 40px; flex-wrap: wrap; gap: 20px; }
+        .stat-item { text-align: center; }
+        .stat-number { font-size: 2rem; font-weight: bold; color: var(--accent); }
+        
+        .features-grid { padding: 40px 20px; }
+        .feature-card { text-align: center; padding: 30px; transition: 0.3s; }
+        .feature-card:hover { transform: translateY(-5px); box-shadow: 0 8px 15px rgba(0,0,0,0.15); }
+        .feature-icon { font-size: 3rem; margin-bottom: 15px; display: block; }
+
+        /* --- VIEW: DASHBOARD --- */
+        .dashboard-header { padding: 20px; background: white; border-bottom: 1px solid #eee; margin-bottom: 20px; }
+        .weather-widget { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; }
+        .schedule-item { border-left: 3px solid var(--primary); padding-left: 15px; margin-bottom: 15px; }
+
+        /* --- TOOL: ROTATION PLANNER --- */
+        .planner-form label { display: block; margin-bottom: 8px; font-weight: 500; }
+        .planner-form select, .planner-form input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 20px; }
+        .result-box { background: #E8F5E9; border: 1px solid #C8E6C9; padding: 15px; border-radius: 8px; margin-top: 20px; }
+        
+        /* --- TOOL: AI SCANNER --- */
+        .scanner-area { border: 2px dashed #aaa; border-radius: 12px; padding: 40px; text-align: center; cursor: pointer; transition: 0.3s; position: relative; overflow: hidden; }
+        .scanner-area:hover { border-color: var(--primary); background: #f9fff9; }
+        .scan-preview { max-width: 100%; max-height: 300px; display: none; margin: 0 auto; border-radius: 8px; }
+        .scan-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; display: none; }
+        
+        /* --- AUTH MODAL --- */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+        .modal-content { background: white; width: 90%; max-width: 400px; padding: 30px; border-radius: var(--radius); position: relative; animation: slideUp 0.3s ease; }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .close-modal { position: absolute; top: 15px; right: 15px; font-size: 1.5rem; cursor: pointer; color: #888; }
+
+        /* --- TOAST NOTIFICATION --- */
+        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 2000; }
+        .toast { background: #333; color: white; padding: 12px 24px; border-radius: 8px; margin-top: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 10px; animation: fadeIn 0.3s, fadeOut 0.3s 2.7s forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeOut { to { opacity: 0; transform: translateY(-10px); } }
+
+        /* --- OTHERS --- */
+        .map-placeholder { width: 100%; height: 300px; background: #e0e0e0; border-radius: 8px; position: relative; background-image: url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%239C92AC" fill-opacity="0.15"%3E%3Cpath d="M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E'); display: flex; align-items: center; justify-content: center; }
+        .map-dot { width: 12px; height: 12px; background: red; border-radius: 50%; position: absolute; cursor: pointer; }
+        .map-dot::after { content: attr(data-label); position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); background: white; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+
+        /* --- RESPONSIVE --- */
+        @media (max-width: 768px) {
+            #sidebar { transform: translateX(-100%); }
+            #sidebar.open { transform: translateX(0); }
+            #main-content { margin-left: 0; }
+            .mobile-header { display: flex; }
+            .grid-2 { grid-template-columns: 1fr; }
+            .hero h1 { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- NOTIFICATION CONTAINER -->
+    <div id="toast-container"></div>
+
+    <!-- AUTH MODAL -->
+    <div id="auth-modal" class="modal-overlay">
+        <div class="modal-content">
+            <span class="close-modal" onclick="toggleAuth(false)">&times;</span>
+            <h2 id="auth-title" style="margin-bottom: 20px; color: var(--primary);">Masuk ke CropRotate</h2>
+            <form id="auth-form" onsubmit="handleAuth(event)">
+                <div id="register-fields" class="hidden">
+                    <label>Nama Lengkap</label>
+                    <input type="text" class="form-input" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ddd; border-radius:4px;" placeholder="Nama Anda">
+                </div>
+                <label>Email</label>
+                <input type="email" class="form-input" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ddd; border-radius:4px;" required placeholder="email@contoh.com">
+                <label>Password</label>
+                <input type="password" class="form-input" style="width:100%; padding:10px; margin-bottom:20px; border:1px solid #ddd; border-radius:4px;" required placeholder="******">
+                
+                <label id="role-label" class="hidden">Peran</label>
+                <select id="role-select" class="hidden" style="width:100%; padding:10px; margin-bottom:20px; border:1px solid #ddd; border-radius:4px;">
+                    <option>Petani</option>
+                    <option>Mahasiswa</option>
+                    <option>Penyuluh</option>
+                    <option>Peneliti</option>
+                </select>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Masuk</button>
+            </form>
+            <p style="margin-top: 15px; text-align: center; font-size: 0.9rem;">
+                <span id="auth-switch-text">Belum punya akun?</span> 
+                <a href="register.html" style="color: var(--primary); font-weight: bold;">Daftar di sini</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- SIDEBAR NAVIGATION -->
+    <nav id="sidebar">
+        <div class="logo-area">
+            <span class="logo-icon">🌱</span>
+            <span class="logo-text">CropRotate</span>
+        </div>
+        <div class="nav-links">
+            <div class="nav-item active" onclick="navigate('home')"><span class="nav-icon">🏠</span> Beranda</div>
+            <div class="nav-item" onclick="navigate('dashboard')"><span class="nav-icon">📊</span> Dashboard</div>
+            <div class="nav-item" onclick="navigate('rotation')"><span class="nav-icon">🔄</span> Smart Rotation</div>
+            <div class="nav-item" onclick="navigate('scanner')"><span class="nav-icon">📸</span> AI Scanner</div>
+            <div class="nav-item" onclick="navigate('database')"><span class="nav-icon">🌿</span> Database Tanaman</div>
+            <div class="nav-item" onclick="navigate('journal')"><span class="nav-icon">📓</span> Farm Journal</div>
+            <div class="nav-item" onclick="navigate('fertilizer')"><span class="nav-icon">🧪</span> Kalkulator Pupuk</div>
+            <div class="nav-item" onclick="navigate('weather')"><span class="nav-icon">⛅</span> Weather Alert</div>
+            <div class="nav-item" onclick="navigate('map')"><span class="nav-icon">🗺️</span> Peta Hama</div>
+            <div class="nav-item" onclick="navigate('forum')"><span class="nav-icon">👥</span> Komunitas</div>
+            <div class="nav-item" onclick="navigate('market')"><span class="nav-icon">🛒</span> Marketplace</div>
+            <div class="nav-item" onclick="navigate('premium')"><span class="nav-icon">💎</span> Premium</div>
+        </div>
+        <div class="user-mini" id="user-profile-display" onclick="toggleAuth(true)" style="cursor: pointer;">
+            <div class="avatar">?</div>
+            <div>
+                <div style="font-weight: bold;">Tamu</div>
+                <div style="font-size: 0.8rem; color: #888;">Klik untuk Login</div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- MAIN CONTENT AREA -->
+    <main id="main-content">
+        
+        <!-- MOBILE HEADER -->
+        <div class="mobile-header">
+            <div style="font-weight: bold; font-size: 1.2rem;">🌱 CropRotate</div>
+            <button onclick="document.getElementById('sidebar').classList.toggle('open')" style="background:none; color:white; font-size:1.5rem;">☰</button>
+        </div>
+
+        <!-- VIEW: HOME -->
+        <section id="view-home" class="view-section">
+            <div class="hero">
+                <div class="container">
+                    <span style="background: var(--accent); padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 0.9rem;">Solusi Pertanian Cerdas</span>
+                    <h1 style="margin-top: 15px;">Rotasi Tepat, Tanaman Sehat, Hasil Meningkat</h1>
+                    <p>Kelola lahan Anda dengan teknologi cerdas. Deteksi hama AI, perencanaan rotasi otomatis, dan komunitas petani yang solid.</p>
+                    <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                        <button class="btn btn-primary" onclick="checkLoginAndNavigate('rotation')">Mulai Perencanaan</button>
+                        <button class="btn btn-outline" style="border-color: white; color: white;" onclick="checkLoginAndNavigate('premium')">Coba Premium</button>
+                    </div>
+                    
+                    <div class="stats-row">
+                        <div class="stat-item">
+                            <div class="stat-number">12,500+</div>
+                            <div>Petani Aktif</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">150+</div>
+                            <div>Database Tanaman</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">5k+</div>
+                            <div>Laporan Hama</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="container features-grid">
+                <h2 style="text-align: center; margin-bottom: 40px;">Fitur Unggulan</h2>
+                <div class="grid-3">
+                    <div class="card feature-card">
+                        <span class="feature-icon">🔄</span>
+                        <h3>Smart Crop Rotation</h3>
+                        <p>Algoritma cerdas menentukan tanaman terbaik berdasarkan riwayat lahan dan musim.</p>
+                    </div>
+                    <div class="card feature-card">
+                        <span class="feature-icon">📸</span>
+                        <h3>AI Plant Scanner</h3>
+                        <p>Deteksi hama dan penyakit hanya dengan memfoto bagian tanaman yang sakit.</p>
+                    </div>
+                    <div class="card feature-card">
+                        <span class="feature-icon">🧪</span>
+                        <h3>Fertilizer Planner</h3>
+                        <p>Hitung kebutuhan pupuk Urea, NPK, dan KCl secara akurat sesuai luas lahan.</p>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 40px; background: var(--primary); color: white;">
+                    <div class="grid-2" style="align-items: center;">
+                        <div>
+                            <h2>Tentang CropRotate</h2>
+                            <p style="margin-top: 15px; opacity: 0.9;">Kami hadir untuk mengatasi masalah monokultur dan penurunan kesuburan tanah. Visi kami adalah mewujudkan pertanian berkelanjutan melalui teknologi digital.</p>
+                            <ul style="margin-top: 15px; margin-left: 20px; opacity: 0.9;">
+                                <li>✅ Mengurangi serangan hama siklikal</li>
+                                <li>✅ Meningkatkan efisiensi hara tanah</li>
+                                <li>✅ Edukasi budidaya terpadu</li>
+                            </ul>
+                        </div>
+                        <div style="text-align: center;">
+                            <span style="font-size: 5rem;">🌾</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW: DASHBOARD -->
+        <section id="view-dashboard" class="view-section hidden">
+            <div class="dashboard-header">
+                <h2>Halo, Petani! 👋</h2>
+                <p>Ringkasan aktivitas lahan Anda hari ini.</p>
+            </div>
+            <div class="container">
+                <!-- AI Score Card -->
+                <div class="card" style="background: linear-gradient(to right, #2E7D32, #43A047); color: white;">
+                    <div class="grid-2" style="align-items: center;">
+                        <div>
+                            <h3>CropRotate AI Score</h3>
+                            <h1 style="font-size: 3rem;">82/100</h1>
+                            <p>Kategori: <strong>Baik</strong>. Kondisi lahan sehat, pertahankan rotasi tanaman.</p>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="width: 100px; height: 100px; border-radius: 50%; border: 5px solid rgba(255,255,255,0.3); border-top: 5px solid white; margin: 0 auto;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid-3">
+                    <!-- Weather -->
+                    <div class="card weather-widget">
+                        <h3>Cuaca Hari Ini</h3>
+                        <div style="display: flex; align-items: center; gap: 15px; margin-top: 10px;">
+                            <span style="font-size: 3rem;">☀️</span>
+                            <div>
+                                <div style="font-size: 2rem; font-weight: bold;">32°C</div>
+                                <div>Cerah Berawan</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 15px; font-size: 0.9rem;">
+                            <p>💧 Kelembapan: 65%</p>
+                            <p>💨 Angin: 12 km/h</p>
+                            <p class="badge bg-warning" style="display:inline-block; margin-top:5px;">Peringatan: Risiko Kekeringan Tinggi</p>
+                        </div>
+                    </div>
+
+                    <!-- Schedule -->
+                    <div class="card">
+                        <h3>Jadwal Budidaya</h3>
+                        <div class="schedule-item">
+                            <strong>Hari Ini:</strong> Penyiraman Padi (Sawah A)
+                        </div>
+                        <div class="schedule-item">
+                            <strong>Besok:</strong> Pemupukan NPK Jagung
+                        </div>
+                        <div class="schedule-item">
+                            <strong>3 Hari Lagi:</strong> Estimasi Panen Cabai
+                        </div>
+                    </div>
+
+                    <!-- Notif -->
+                    <div class="card">
+                        <h3>Notifikasi</h3>
+                        <ul style="font-size: 0.9rem;">
+                            <li style="padding: 8px 0; border-bottom: 1px solid #eee;">⚠️ <strong>Peringatan Hama:</strong> Wereng terdeteksi di wilayah tetangga.</li>
+                            <li style="padding: 8px 0; border-bottom: 1px solid #eee;">📦 <strong>Marketplace:</strong> Pesanan benih Anda telah dikirim.</li>
+                            <li style="padding: 8px 0;">📅 <strong>Jurnal:</strong> Jangan lupa catat aktivitas hari ini.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW: ROTATION PLANNER -->
+        <section id="view-rotation" class="view-section hidden">
+            <div class="container">
+                <h2 style="margin-bottom: 20px; color: var(--primary);">Smart Crop Rotation Planner</h2>
+                <div class="grid-2">
+                    <div class="card">
+                        <h3 style="margin-bottom: 20px;">Input Data Lahan</h3>
+                        <div class="planner-form">
+                            <label>Tanaman Terakhir Dipanen</label>
+                            <select id="prev-crop">
+                                <option value="Padi">Padi</option>
+                                <option value="Jagung">Jagung</option>
+                                <option value="Kedelai">Kedelai</option>
+                                <option value="Cabai">Cabai</option>
+                                <option value="Kacang Hijau">Kacang Hijau</option>
+                            </select>
+
+                            <label>Luas Lahan (m²)</label>
+                            <input type="number" id="land-area" placeholder="Contoh: 1000">
+
+                            <label>Jenis Tanah</label>
+                            <select id="soil-type">
+                                <option value="Latosol">Latosol (Merah)</option>
+                                <option value="Alluvial">Alluvial (Teras sawah)</option>
+                                <option value="Regosol">Regosol (Pasir)</option>
+                                <option value="Humus">Tanah Humus</option>
+                            </select>
+
+                            <label>Riwayat Penyakit (Opsional)</label>
+                            <input type="text" placeholder="Contoh: Blast, Busuk Batang">
+
+                            <button class="btn btn-primary" style="width: 100%;" onclick="calculateRotation()">Analisis & Rekomendasi</button>
+                        </div>
+                    </div>
+
+                    <div class="card" id="rotation-result" style="display:none; background: #E8F5E9;">
+                        <h3 style="margin-bottom: 15px; color: var(--primary);">Hasil Analisis AI</h3>
+                        <div id="result-content"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW: AI SCANNER -->
+        <section id="view-scanner" class="view-section hidden">
+            <div class="container">
+                <h2 style="margin-bottom: 20px; color: var(--primary);">AI Plant Scanner</h2>
+                <div class="card" style="text-align: center;">
+                    <p style="margin-bottom: 20px;">Unggah foto daun, batang, atau buah tanaman Anda untuk mendeteksi hama, penyakit, atau kekurangan unsur hara.</p>
+                    
+                    <div class="scanner-area" onclick="document.getElementById('file-input').click()">
+                        <input type="file" id="file-input" accept="image/*" hidden onchange="previewImage(event)">
+                        <div id="scan-placeholder">
+                            <span style="font-size: 3rem;">📷</span>
+                            <p>Klik untuk pilih foto atau drag & drop di sini</p>
+                        </div>
+                        <img id="scan-preview-img" class="scan-preview" alt="Preview">
+                        <div id="scan-loading" class="scan-overlay">
+                            <div>🤖 Menganalisis dengan AI...</div>
+                        </div>
+                    </div>
+
+                    <div id="scan-result" class="hidden" style="margin-top: 30px; text-align: left;">
+                        <div class="grid-2">
+                            <div>
+                                <h3 style="color: var(--primary);">Hasil Deteksi</h3>
+                                <div class="card" style="border-left: 5px solid var(--accent);">
+                                    <h2 id="disease-name">Nama Penyakit</h2>
+                                    <p><strong>Tingkat Keparahan:</strong> <span class="badge bg-danger">Berat</span></p>
+                                    <p id="disease-cause" style="margin-top: 10px; font-style: italic;">Penyebab: Jamur <i>Magnaporthe oryzae</i></p>
+                                </div>
+                            </div>
+                            <div>
+                                <h3 style="color: var(--primary);">Solusi & Rekomendasi</h3>
+                                <ul style="list-style-type: disc; padding-left: 20px;">
+                                    <li>Semprot fungisida berbahan aktif trisiklazol.</li>
+                                    <li>Kurangi pemupukan Nitrogen berlebihan.</li>
+                                    <li>Jaga kelembapan lingkungan sawah.</li>
+                                    <li>Rotasi tanam dengan tanaman padi selingan (jarang tanam).</li>
+                                </ul>
+                                <button class="btn btn-primary" style="margin-top: 15px;" onclick="window.print()">Cetak Laporan</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW: DATABASE TANAMAN -->
+        <section id="view-database" class="view-section hidden">
+            <div class="container">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>Database Tanaman</h2>
+                    <input type="text" placeholder="Cari tanaman..." style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                
+                <div class="grid-3">
+                    <!-- Items generated by JS -->
+                    <div class="card">
+                        <div style="height: 120px; background: #eee; border-radius: 8px; display:flex; align-items:center; justify-content:center; margin-bottom:15px; font-size:3rem;">🌾</div>
+                        <h3>Padi (Oryza sativa)</h3>
+                        <p style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">pH: 5.5 - 6.5 | Curah Hujan: Tinggi</p>
+                        <button class="btn btn-outline" style="width: 100%; font-size: 0.8rem;" onclick="showPlantGuide('Padi')">Lihat Panduan Budidaya</button>
+                    </div>
+                    <div class="card">
+                        <div style="height: 120px; background: #eee; border-radius: 8px; display:flex; align-items:center; justify-content:center; margin-bottom:15px; font-size:3rem;">🌽</div>
+                        <h3>Jagung (Zea mays)</h3>
+                        <p style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">pH: 6.0 - 7.0 | Curah Hujan: Sedang</p>
+                        <button class="btn btn-outline" style="width: 100%; font-size: 0.8rem;" onclick="showPlantGuide('Jagung')">Lihat Panduan Budidaya</button>
+                    </div>
+                    <div class="card">
+                        <div style="height: 120px; background: #eee; border-radius: 8px; display:flex; align-items:center; justify-content:center; margin-bottom:15px; font-size:3rem;">🌶️</div>
+                        <h3>Cabai (Capsicum)</h3>
+                        <p style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">pH: 5.5 - 6.5 | Curah Hujan: Rendah</p>
+                        <button class="btn btn-outline" style="width: 100%; font-size: 0.8rem;" onclick="showPlantGuide('Cabai')">Lihat Panduan Budidaya</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW: FERTILIZER CALCULATOR -->
+        <section id="view-fertilizer" class="view-section hidden">
+            <div class="container">
+                <div class="card" style="max-width: 600px; margin: 0 auto;">
+                    <h2 style="text-align: center; margin-bottom: 20px;">Kalkulator Pemupukan</h2>
+                    <label>Jenis Tanaman</label>
+                    <select id="fert-crop" style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 6px;">
+                        <option value="Padi">Padi</option>
+                        <option value="Jagung">Jagung</option>
+                        <option value="Kedelai">Kedelai</option>
+                    </select>
+
+                    <label>Luas Lahan (m²)</label>
+                    <input type="number" id="fert-area" placeholder="0" style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ddd; border-radius: 6px;">
+
+                    <button class="btn btn-primary" style="width: 100%;" onclick="calculateFertilizer()">Hitung Kebutuhan</button>
+
+                    <div id="fert-result" class="hidden result-box" style="margin-top: 20px;">
+                        <h4>Rekomendasi Pupuk:</h4>
+                        <ul id="fert-list" style="margin-top: 10px;"></ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW: MAP (PEST MAP) -->
+        <section id="view-map" class="view-section hidden">
+            <div class="container">
+                <h2>Peta Persebaran Hama & Penyakit</h2>
+                <div class="card" style="padding: 0; overflow: hidden;">
+                    <div class="map-placeholder">
+                        <!-- Mock Dots -->
+                        <div class="map-dot" style="top: 30%; left: 40%;" data-label="Wereng (Level Tinggi)"></div>
+                        <div class="map-dot" style="top: 50%; left: 70%; background: orange;" data-label="Ulat Grayak (Level Sedang)"></div>
+                        <div class="map-dot" style="top: 60%; left: 20%; background: green;" data-label="Sehat"></div>
+                    </div>
+                    <div style="padding: 20px;">
+                        <p>Laporan Terbaru: <strong>Desa Sukamaju</strong> melaporkan serangan Wereng Batang Coklat pada tanaman padi umur 60 HST.</p>
+                        <button class="btn btn-primary" style="margin-top: 10px;">Laporkan Hama di Lokasi Saya</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW: FORUM & COMMUNITY -->
+        <section id="view-forum" class="view-section hidden">
+            <div class="container">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>Komunitas Tani</h2>
+                    <button class="btn btn-primary">Buat Topik Baru</button>
+                </div>
+                
+                <div class="card">
+                    <div style="display: flex; gap: 15px; border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 15px;">
+                        <div class="avatar" style="background: #FF9800;">B</div>
+                        <div>
+                            <h4 style="color: var(--primary);">Tips mengatasi buah cabai busuk ujung?</h4>
+                            <p style="font-size: 0.9rem; color: #666;">Oleh: Budi Santoso • 2 jam yang lalu</p>
+                            <p style="margin-top: 5px;">Para senior, mohon infonya. Cabai saya sering busuk ujung saat panen raya. Apakah kurang Kalsium?</p>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 15px;">
+                        <div class="avatar" style="background: #2196F3;">S</div>
+                        <div>
+                            <h4 style="color: var(--primary);">Varietas Jagung yang tahan kekeringan untuk lahan kering</h4>
+                            <p style="font-size: 0.9rem; color: #666;">Oleh: Siti Aminah • 5 jam yang lalu</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW: MARKETPLACE -->
+        <section id="view-market" class="view-section hidden">
+            <div class="container">
+                <h2>Marketplace Pertanian</h2>
+                <div class="grid-3" style="margin-top: 20px;">
+                    <div class="card">
+                        <div style="height: 150px; background: #eee; margin-bottom: 10px; border-radius: 8px;"></div>
+                        <h4>Benih Padi Hibrida</h4>
+                        <p style="color: var(--primary); font-weight: bold;">Rp 120.000 / kg</p>
+                        <button class="btn btn-outline" style="width: 100%; margin-top: 10px;">Beli</button>
+                    </div>
+                    <div class="card">
+                        <div style="height: 150px; background: #eee; margin-bottom: 10px; border-radius: 8px;"></div>
+                        <h4>Pupuk NPK Mutiara</h4>
+                        <p style="color: var(--primary); font-weight: bold;">Rp 850.000 / karung</p>
+                        <button class="btn btn-outline" style="width: 100%; margin-top: 10px;">Beli</button>
+                    </div>
+                    <div class="card">
+                        <div style="height: 150px; background: #eee; margin-bottom: 10px; border-radius: 8px;"></div>
+                        <h4>Pestisida Organik</h4>
+                        <p style="color: var(--primary); font-weight: bold;">Rp 45.000 / botol</p>
+                        <button class="btn btn-outline" style="width: 100%; margin-top: 10px;">Beli</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW: PREMIUM -->
+        <section id="view-premium" class="view-section hidden">
+            <div class="container" style="text-align: center;">
+                <h2 style="margin-bottom: 10px;">Tingkatkan Hasil Panen dengan Premium</h2>
+                <p style="margin-bottom: 40px;">Dapatkan analisis AI tanpa batas dan konsultasi ahli.</p>
+                
+                <div class="grid-3">
+                    <div class="card" style="border: 2px solid #eee;">
+                        <h3>Basic</h3>
+                        <h2 style="margin: 20px 0;">Gratis</h2>
+                        <ul style="text-align: left; margin-bottom: 20px; font-size: 0.9rem; line-height: 1.6;">
+                            <li>✅ Rotation Planner Dasar</li>
+                            <li>✅ Database Tanaman</li>
+                            <li>❌ AI Scanner Terbatas (5x/bulan)</li>
+                        </ul>
+                        <button class="btn btn-outline">Paket Saat Ini</button>
+                    </div>
+                    <div class="card" style="border: 2px solid var(--primary); transform: scale(1.05); position: relative;">
+                        <div style="background: var(--primary); color: white; padding: 5px; position: absolute; top: 0; left: 0; width: 100%; font-size: 0.8rem;">POPULER</div>
+                        <h3 style="margin-top: 15px;">Premium</h3>
+                        <h2 style="margin: 20px 0; color: var(--primary);">Rp 99.000<span style="font-size: 1rem; color: #666;">/bln</span></h2>
+                        <ul style="text-align: left; margin-bottom: 20px; font-size: 0.9rem; line-height: 1.6;">
+                            <li>✅ AI Scanner Tanpa Batas</li>
+                            <li>✅ Analisis Kekurangan Hara</li>
+                            <li>✅ Konsultasi Pakar</li>
+                            <li>✅ Laporan PDF Lengkap</li>
+                        </ul>
+                        <button class="btn btn-primary" style="width: 100%;">Berlangganan</button>
+                    </div>
+                    <div class="card" style="border: 2px solid var(--accent);">
+                        <h3>Trial</h3>
+                        <h2 style="margin: 20px 0; color: var(--accent);">Rp 50.000</h2>
+                        <ul style="text-align: left; margin-bottom: 20px; font-size: 0.9rem; line-height: 1.6;">
+                            <li>✅ Akses Semua Fitur Premium</li>
+                            <li>✅ Berlaku 30 Hari</li>
+                            <li>✅ Monitoring Banyak Lahan</li>
+                        </ul>
+                        <button class="btn btn-outline" style="border-color: var(--accent); color: var(--accent);">Coba 30 Hari</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW: JOURNAL (Placeholder for functionality) -->
+        <section id="view-journal" class="view-section hidden">
+            <div class="container">
+                <h2>Farm Journal</h2>
+                <div class="card">
+                    <h3>Catatan Baru</h3>
+                    <input type="text" placeholder="Kegiatan (misal: Penyiraman)" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd;">
+                    <textarea placeholder="Detail catatan..." style="width: 100%; padding: 10px; height: 80px; border: 1px solid #ddd;"></textarea>
+                    <button class="btn btn-primary" style="margin-top: 10px;" onclick="showToast('Catatan berhasil disimpan!')">Simpan Catatan</button>
+                </div>
+                <div class="card">
+                    <h3>Riwayat Kegiatan</h3>
+                    <p style="color: #888;">Belum ada catatan.</p>
+                </div>
+            </div>
+        </section>
+        
+        <!-- VIEW: WEATHER (Placeholder) -->
+        <section id="view-weather" class="view-section hidden">
+            <div class="container">
+                <h2>Weather Alert</h2>
+                <div class="card weather-widget">
+                    <h3>Prediksi Cuaca 7 Hari</h3>
+                    <!-- Mock Table -->
+                    <table style="width: 100%; margin-top: 20px; color: white;">
+                        <tr><td>Senin</td><td>☀️ 32°C</td><td>Cerah</td></tr>
+                        <tr><td>Selasa</td><td>⛅ 30°C</td><td>Berawan</td></tr>
+                        <tr><td>Rabu</td><td>🌧️ 28°C</td><td>Hujan Ringan</td></tr>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // --- STATE MANAGEMENT ---
+        const state = {
+            isLoggedIn: false,
+            user: null,
+            isRegistering: false
+        };
+
+        // --- NAVIGATION ---
+        function navigate(viewId) {
+            // Hide all sections
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            
+            // Show target section
+            document.getElementById(`view-${viewId}`).classList.remove('hidden');
+            
+            // Update sidebar active state
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            // Simple logic to find the nav item (in a real app, use IDs)
+            // Here we just rely on user click
+            
+            // Close mobile sidebar if open
+            document.getElementById('sidebar').classList.remove('open');
+            
+            // Scroll to top
+            window.scrollTo(0, 0);
+        }
+
+        function checkLoginAndNavigate(viewId) {
+            if (!state.isLoggedIn) {
+                toggleAuth(true);
+            } else {
+                navigate(viewId);
+            }
+        }
+
+        // --- AUTHENTICATION ---
+        function toggleAuth(show) {
+            const modal = document.getElementById('auth-modal');
+            modal.style.display = show ? 'flex' : 'none';
+        }
+
+        function toggleAuthMode() {
+            state.isRegistering = !state.isRegistering;
+            const title = document.getElementById('auth-title');
+            const regFields = document.getElementById('register-fields');
+            const roleLabel = document.getElementById('role-label');
+            const roleSelect = document.getElementById('role-select');
+            const switchText = document.getElementById('auth-switch-text');
+            const btn = document.querySelector('#auth-form button');
+
+            if (state.isRegistering) {
+                title.innerText = "Daftar Akun Baru";
+                regFields.classList.remove('hidden');
+                roleLabel.classList.remove('hidden');
+                roleSelect.classList.remove('hidden');
+                switchText.innerText = "Sudah punya akun?";
+                btn.innerText = "Daftar Sekarang";
+            } else {
+                title.innerText = "Masuk ke CropRotate";
+                regFields.classList.add('hidden');
+                roleLabel.classList.add('hidden');
+                roleSelect.classList.add('hidden');
+                switchText.innerText = "Belum punya akun?";
+                btn.innerText = "Masuk";
+            }
+        }
+
+        function handleAuth(e) {
+            e.preventDefault();
+            // Simulate login/register
+            const email = e.target.querySelector('input[type="email"]').value;
+            
+            // Update UI to logged in state
+            state.isLoggedIn = true;
+            state.user = { name: email.split('@')[0], role: 'Petani' };
+            
+            const userDisplay = document.getElementById('user-profile-display');
+            userDisplay.innerHTML = `
+                <div class="avatar">${state.user.name[0].toUpperCase()}</div>
+                <div>
+                    <div style="font-weight: bold;">${state.user.name}</div>
+                    <div style="font-size: 0.8rem; color: var(--primary);">Member Aktif</div>
+                </div>
+            `;
+            
+            toggleAuth(false);
+            showToast(`Selamat datang, ${state.user.name}!`);
+            navigate('dashboard');
+        }
+
+        // --- TOAST NOTIFICATIONS ---
+        function showToast(message) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.innerHTML = `<span>🔔</span> ${message}`;
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        // --- FEATURE: CROP ROTATION LOGIC ---
+        function calculateRotation() {
+            const prevCrop = document.getElementById('prev-crop').value;
+            const soilType = document.getElementById('soil-type').value;
+            
+            const resultBox = document.getElementById('rotation-result');
+            const resultContent = document.getElementById('result-content');
+            
+            // Simple logic simulation
+            let recommendations = [];
+            let reason = "";
+
+            if (prevCrop === 'Padi') {
+                recommendations = ['Kedelai', 'Kacang Hijau', 'Jagung'];
+                reason = "Mengganti padi dengan legum (Kacang-kacangan) memperbaiki nitrogen tanah. Jagung juga baik untuk memutus siklus hama tanaman padi.";
+            } else if (prevCrop === 'Jagung') {
+                recommendations = ['Kedelai', 'Ubi Kayu', 'Kacang Tanah'];
+                reason = "Jagung adalah boros hara, perlu tanaman penghasil humus atau legum.";
+            } else if (prevCrop === 'Cabai') {
+                recommendations = ['Padi', 'Jagung', 'Bawang Merah'];
+                reason = "Menghindari akumulasi virus dan nematoda tanaman solanaceae.";
+            } else {
+                recommendations = ['Padi', 'Jagung'];
+                reason = "Rotasi kembali ke tanaman pangan pokok untuk pemulihan struktur tanah.";
+            }
+
+            let html = `
+                <p><strong>Tanaman Sebelumnya:</strong> ${prevCrop}</p>
+                <p><strong>Tipe Tanah:</strong> ${soilType}</p>
+                <hr style="margin: 15px 0; border: 0; border-top: 1px solid #ddd;">
+                <h4>✅ Tanaman Direkomendasikan:</h4>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0;">
+                    ${recommendations.map(r => `<span class="badge bg-success" style="font-size: 1rem;">${r}</span>`).join('')}
+                </div>
+                <p style="margin-top: 10px; font-style: italic;">"${reason}"</p>
+            `;
+
+            resultContent.innerHTML = html;
+            resultBox.style.display = 'block';
+            showToast('Analisis rotasi selesai!');
+        }
+
+        // --- FEATURE: AI SCANNER SIMULATION ---
+        function previewImage(event) {
+            const input = event.target;
+            const preview = document.getElementById('scan-preview-img');
+            const placeholder = document.getElementById('scan-placeholder');
+            const loading = document.getElementById('scan-loading');
+            const resultArea = document.getElementById('scan-result');
+
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                    placeholder.style.display = 'none';
+                    resultArea.classList.add('hidden');
+                    
+                    // Simulate scanning
+                    loading.style.display = 'flex';
+                    
+                    setTimeout(() => {
+                        loading.style.display = 'none';
+                        resultArea.classList.remove('hidden');
+                        
+                        // Randomize result for demo
+                        const diseases = [
+                            { name: "Blast Daun", cause: "Jamur Magnaporthe oryzae" },
+                            { name: "Kekurangan Nitrogen", cause: "Tanaman kekuningan, daun tua menguning dulu" },
+                            { name: "Hawar Daun", cause: "Bakteri Xanthomonas oryzae" }
+                        ];
+                        const randomDisease = diseases[Math.floor(Math.random() * diseases.length)];
+                        
+                        document.getElementById('disease-name').innerText = randomDisease.name;
+                        document.getElementById('disease-cause').innerText = "Penyebab: " + randomDisease.cause;
+                        
+                        showToast('Scanning selesai. Hasil ditemukan.');
+                    }, 2000);
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        // --- FEATURE: FERTILIZER CALCULATOR ---
+        function calculateFertilizer() {
+            const crop = document.getElementById('fert-crop').value;
+            const area = parseFloat(document.getElementById('fert-area').value);
+            const resultDiv = document.getElementById('fert-result');
+            const list = document.getElementById('fert-list');
+
+            if (!area) {
+                showToast('Mohon masukkan luas lahan!');
+                return;
+            }
+
+            let urea = 0, npk = 0, kcl = 0;
+
+            // Simple mock formulas per m2
+            if (crop === 'Padi') {
+                urea = area * 0.01; // 10kg per 1000m2
+                npk = area * 0.02;
+                kcl = area * 0.005;
+            } else if (crop === 'Jagung') {
+                urea = area * 0.015;
+                npk = area * 0.03;
+                kcl = area * 0.01;
+            } else {
+                urea = area * 0.005;
+                npk = area * 0.015;
+                kcl = area * 0.005;
+            }
+
+            list.innerHTML = `
+                <li><strong>Urea:</strong> ${urea.toFixed(1)} kg</li>
+                <li><strong>NPK:</strong> ${npk.toFixed(1)} kg</li>
+                <li><strong>KCl:</strong> ${kcl.toFixed(1)} kg</li>
+            `;
+            
+            resultDiv.classList.remove('hidden');
+        }
+
+        // --- UTILS: PLANT GUIDE MODAL (Simplified Alert) ---
+        function showPlantGuide(plant) {
+            // For a single file, using a nice modal overlay (reusing auth modal structure dynamically would be complex, 
+            // so let's just show a toast for the demo or navigate to a hypothetical section)
+            showToast(`Membuka panduan budidaya untuk ${plant}...`);
+            // In a real app, this would open a detailed modal or page.
+        }
+
+        // --- INIT ---
+        window.onload = function() {
+            // Start at home
+            navigate('home');
+        };
+
+    </script>
+</body>
+</html>
